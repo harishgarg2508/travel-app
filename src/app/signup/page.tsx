@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -36,7 +36,7 @@ function getGoogleSignInErrorMessage(error: unknown) {
 
 function SignupForm() {
   const router = useRouter();
-  const { signup, signInWithGoogle } = useAuth();
+  const { user, loading, signup, signInWithGoogle } = useAuth();
   const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL?.trim().toLowerCase() || '';
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -48,6 +48,12 @@ function SignupForm() {
   const getPostSignupPath = (email: string | null | undefined) => {
     return email?.trim().toLowerCase() === adminEmail ? '/admin' : '/';
   };
+
+  useEffect(() => {
+    if (!loading && user) {
+      router.replace(getPostSignupPath(user.email));
+    }
+  }, [loading, user, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,9 +90,7 @@ function SignupForm() {
   const handleGoogleSignIn = async () => {
     setGoogleSubmitting(true);
     try {
-      const credential = await signInWithGoogle();
-      toast.success('Signed in with Google!');
-      router.push(getPostSignupPath(credential.user.email));
+      await signInWithGoogle();
     } catch (err: any) {
       console.error('Google sign-in button failed on signup page', err);
       const message = getGoogleSignInErrorMessage(err);

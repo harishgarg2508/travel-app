@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -37,7 +37,7 @@ function getGoogleSignInErrorMessage(error: unknown) {
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login, signInWithGoogle } = useAuth();
+  const { user, loading, login, signInWithGoogle } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -50,6 +50,12 @@ function LoginForm() {
     if (redirectTo) return redirectTo;
     return email?.trim().toLowerCase() === adminEmail ? '/admin' : '/';
   };
+
+  useEffect(() => {
+    if (!loading && user) {
+      router.replace(getPostLoginPath(user.email));
+    }
+  }, [loading, user, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,9 +86,7 @@ function LoginForm() {
   const handleGoogleSignIn = async () => {
     setGoogleSubmitting(true);
     try {
-      const credential = await signInWithGoogle();
-      toast.success('Signed in with Google!');
-      router.push(getPostLoginPath(credential.user.email));
+      await signInWithGoogle();
     } catch (err: any) {
       console.error('Google sign-in button failed', err);
       const message = getGoogleSignInErrorMessage(err);

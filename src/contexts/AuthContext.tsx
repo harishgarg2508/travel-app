@@ -8,7 +8,7 @@ import {
   signOut,
   updateProfile,
   GoogleAuthProvider,
-  signInWithPopup,
+  signInWithRedirect,
   type User,
   type UserCredential,
 } from 'firebase/auth';
@@ -50,7 +50,7 @@ interface AuthContextType {
   isAdmin: boolean;
   login: (email: string, password: string) => Promise<UserCredential>;
   signup: (name: string, email: string, password: string) => Promise<UserCredential>;
-  signInWithGoogle: () => Promise<UserCredential>;
+  signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -149,30 +149,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithGoogle = async () => {
     try {
       const provider = new GoogleAuthProvider();
-      const cred = await signInWithPopup(auth, provider);
-
-      try {
-        const userDocRef = doc(db, 'users', cred.user.uid);
-        const userDocSnap = await getDoc(userDocRef);
-        if (!userDocSnap.exists()) {
-          const newUserData: UserData = {
-            uid: cred.user.uid,
-            name: cred.user.displayName || 'User',
-            email: cred.user.email || '',
-          };
-          await setDoc(userDocRef, newUserData);
-          setUserData(newUserData);
-        }
-      } catch (profileError) {
-        console.error('Google sign-in succeeded, but user profile sync failed.', profileError);
-        setUserData({
-          uid: cred.user.uid,
-          name: cred.user.displayName || 'User',
-          email: cred.user.email || '',
-        });
-      }
-
-      return cred;
+      provider.setCustomParameters({ prompt: 'select_account' });
+      await signInWithRedirect(auth, provider);
     } catch (error) {
       console.error('Google sign-in failed', error);
       throw error;
