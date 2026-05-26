@@ -8,6 +8,7 @@ import {
   signOut,
   updateProfile,
   GoogleAuthProvider,
+  getRedirectResult,
   signInWithRedirect,
   type User,
   type UserCredential,
@@ -62,6 +63,29 @@ function normalizeEmail(email: string | null | undefined) {
   return email?.trim().toLowerCase() || '';
 }
 
+async function syncUserProfile(firebaseUser: User, setUserData: (userData: UserData) => void) {
+  const fallbackUserData: UserData = {
+    uid: firebaseUser.uid,
+    name: firebaseUser.displayName || 'User',
+    email: firebaseUser.email || '',
+  };
+
+  try {
+    const userDocRef = doc(db, 'users', firebaseUser.uid);
+    const userDocSnap = await getDoc(userDocRef);
+    if (userDocSnap.exists()) {
+      setUserData(userDocSnap.data() as UserData);
+      return;
+    }
+
+    await setDoc(userDocRef, fallbackUserData);
+    setUserData(fallbackUserData);
+  } catch (profileError) {
+    console.error('User profile sync failed. Falling back to auth profile only.', profileError);
+    setUserData(fallbackUserData);
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
@@ -72,39 +96,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true;
 
+    getRedirectResult(auth)
+      .then((result) => {
+        if (active && result?.user) {
+          setUser(result.user);
+          return syncUserProfile(result.user, setUserData);
+        }
+      })
+      .catch((error) => {
+        if (!isAbortError(error)) {
+          console.error('Google redirect sign-in failed', error);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!active) return;
 
       setUser(firebaseUser);
       if (firebaseUser) {
-        try {
-          const docRef = doc(db, 'users', firebaseUser.uid);
-          const docSnap = await getDoc(docRef);
-          if (!active) return;
-          if (docSnap.exists()) {
-            setUserData(docSnap.data() as UserData);
-          } else {
-            setUserData({
-              uid: firebaseUser.uid,
-              name: firebaseUser.displayName || '',
-              email: firebaseUser.email || '',
-            });
-          }
-        } catch (error) {
-          if (!active) {
-            return;
-          }
-
-          if (!isAbortError(error)) {
-            console.error('Failed to load user data from Firestore for signed-in user. Falling back to auth profile only.', error);
-          }
-
-          setUserData({
-            uid: firebaseUser.uid,
-            name: firebaseUser.displayName || '',
-            email: firebaseUser.email || '',
-          });
-        }
+        await syncUserProfile(firebaseUser, setUserData);
       } else {
         setUserData(null);
       }
