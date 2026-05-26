@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
+import { saveCitiesForTrip } from '@/lib/cities';
 import { VEHICLE_TYPES } from '@/lib/types';
 import AdminGuard from '@/components/AdminGuard';
 import CityAutocomplete from '@/components/CityAutocomplete';
@@ -87,7 +88,7 @@ export default function EditTripPage() {
       toast.error('Please fill in all required fields');
       return;
     }
-    if (formData.fromCity === formData.toCity) {
+    if (formData.fromCity.trim().toLowerCase() === formData.toCity.trim().toLowerCase()) {
       toast.error('From and To cities must be different');
       return;
     }
@@ -120,6 +121,7 @@ export default function EditTripPage() {
         price: Number(formData.price),
         seatsAvailable: Number(formData.seatsAvailable),
       });
+      await saveCitiesForTrip(formData.fromCity, formData.toCity);
 
       toast.success('Trip updated successfully!');
       router.push('/admin');

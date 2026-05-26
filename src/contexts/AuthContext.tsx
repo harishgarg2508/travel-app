@@ -150,18 +150,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const provider = new GoogleAuthProvider();
       const cred = await signInWithPopup(auth, provider);
-      // Create/update user document in Firestore
-      const userDocRef = doc(db, 'users', cred.user.uid);
-      const userDocSnap = await getDoc(userDocRef);
-      if (!userDocSnap.exists()) {
-        const newUserData: UserData = {
+
+      try {
+        const userDocRef = doc(db, 'users', cred.user.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        if (!userDocSnap.exists()) {
+          const newUserData: UserData = {
+            uid: cred.user.uid,
+            name: cred.user.displayName || 'User',
+            email: cred.user.email || '',
+          };
+          await setDoc(userDocRef, newUserData);
+          setUserData(newUserData);
+        }
+      } catch (profileError) {
+        console.error('Google sign-in succeeded, but user profile sync failed.', profileError);
+        setUserData({
           uid: cred.user.uid,
           name: cred.user.displayName || 'User',
           email: cred.user.email || '',
-        };
-        await setDoc(userDocRef, newUserData);
-        setUserData(newUserData);
+        });
       }
+
       return cred;
     } catch (error) {
       console.error('Google sign-in failed', error);

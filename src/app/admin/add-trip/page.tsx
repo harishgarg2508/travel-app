@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
+import { saveCitiesForTrip } from '@/lib/cities';
 import { VEHICLE_TYPES } from '@/lib/types';
 import AdminGuard from '@/components/AdminGuard';
 import CityAutocomplete from '@/components/CityAutocomplete';
@@ -44,7 +45,7 @@ export default function AddTripPage() {
       toast.error('Please fill in all required fields');
       return;
     }
-    if (formData.fromCity === formData.toCity) {
+    if (formData.fromCity.trim().toLowerCase() === formData.toCity.trim().toLowerCase()) {
       toast.error('From and To cities must be different');
       return;
     }
@@ -73,6 +74,7 @@ export default function AddTripPage() {
       };
 
       await addDoc(collection(db, 'trips'), tripData);
+      await saveCitiesForTrip(formData.fromCity, formData.toCity);
       toast.success('Trip added successfully!');
       router.push('/admin');
     } catch (err) {

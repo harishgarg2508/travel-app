@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { searchCities } from '@/lib/cities';
+import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { mergeCities, searchCities } from '@/lib/cities';
 
 interface CityAutocompleteProps {
   value: string;
@@ -18,6 +20,7 @@ export default function CityAutocomplete({
 }: CityAutocompleteProps) {
   const [inputValue, setInputValue] = useState(value);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [cities, setCities] = useState<string[]>(() => mergeCities([]));
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -25,6 +28,31 @@ export default function CityAutocomplete({
   useEffect(() => {
     setInputValue(value);
   }, [value]);
+
+  useEffect(() => {
+    const results = searchCities(inputValue, cities);
+    setSuggestions(results);
+    setShowSuggestions((current) => current && results.length > 0);
+  }, [cities, inputValue]);
+
+  useEffect(() => {
+    const citiesQuery = query(collection(db, 'cities'), orderBy('name', 'asc'));
+    const unsubscribe = onSnapshot(
+      citiesQuery,
+      (snapshot) => {
+        const firestoreCities = snapshot.docs
+          .map((cityDoc) => cityDoc.data().name)
+          .filter((name): name is string => typeof name === 'string');
+
+        setCities(mergeCities(firestoreCities));
+      },
+      (error) => {
+        console.error('Failed to load city suggestions:', error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -40,7 +68,7 @@ export default function CityAutocomplete({
     const val = e.target.value;
     setInputValue(val);
     onChange(val);
-    const results = searchCities(val);
+    const results = searchCities(val, cities);
     setSuggestions(results);
     setShowSuggestions(results.length > 0);
     setActiveIndex(-1);
@@ -82,7 +110,9 @@ export default function CityAutocomplete({
           value={inputValue}
           onChange={handleInputChange}
           onFocus={() => {
-            if (suggestions.length > 0) setShowSuggestions(true);
+            const results = searchCities(inputValue, cities);
+            setSuggestions(results);
+            if (results.length > 0) setShowSuggestions(true);
           }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}

@@ -6,6 +6,34 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
 
+function getFirebaseErrorCode(error: unknown) {
+  return typeof error === 'object' && error !== null && 'code' in error
+    ? (error as { code?: unknown }).code
+    : undefined;
+}
+
+function getGoogleSignInErrorMessage(error: unknown) {
+  const code = getFirebaseErrorCode(error);
+
+  if (code === 'auth/unauthorized-domain') {
+    return 'This production domain is not authorized in Firebase Authentication.';
+  }
+
+  if (code === 'auth/popup-blocked') {
+    return 'The Google sign-in popup was blocked by the browser.';
+  }
+
+  if (code === 'auth/popup-closed-by-user') {
+    return '';
+  }
+
+  if (code === 'auth/operation-not-allowed') {
+    return 'Google sign-in is not enabled in Firebase Authentication.';
+  }
+
+  return 'Failed to sign in with Google. Please try again.';
+}
+
 function SignupForm() {
   const router = useRouter();
   const { signup, signInWithGoogle } = useAuth();
@@ -61,8 +89,9 @@ function SignupForm() {
       router.push(getPostSignupPath(credential.user.email));
     } catch (err: any) {
       console.error('Google sign-in button failed on signup page', err);
-      if (err.code !== 'auth/popup-closed-by-user') {
-        toast.error('Failed to sign in with Google. Please try again.');
+      const message = getGoogleSignInErrorMessage(err);
+      if (message) {
+        toast.error(message);
       }
     } finally {
       setGoogleSubmitting(false);
