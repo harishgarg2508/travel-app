@@ -87,7 +87,8 @@ function SignupForm() {
     }
   };
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignIn = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
     setGoogleSubmitting(true);
     try {
       const credential = await signInWithGoogle();
@@ -119,6 +120,7 @@ function SignupForm() {
           </div>
 
           <button
+            type="button"
             onClick={handleGoogleSignIn}
             disabled={googleSubmitting}
             className="w-full py-3 border border-gray-200 rounded-xl text-gray-700 font-medium flex items-center justify-center gap-3 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 mb-4"
