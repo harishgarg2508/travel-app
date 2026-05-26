@@ -83,22 +83,26 @@ function LoginForm() {
     }
   };
 
-  const handleGoogleSignIn = async (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleGoogleSignIn = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
+    const signInPromise = signInWithGoogle();
     setGoogleSubmitting(true);
-    try {
-      const credential = await signInWithGoogle();
+
+    signInPromise
+      .then((credential) => {
       toast.success('Signed in with Google!');
       router.push(getPostLoginPath(credential.user.email));
-    } catch (err: any) {
+      })
+      .catch((err: any) => {
       console.error('Google sign-in button failed', err);
       const message = getGoogleSignInErrorMessage(err);
       if (message) {
         toast.error(message);
       }
-    } finally {
-      setGoogleSubmitting(false);
-    }
+      })
+      .finally(() => {
+        setGoogleSubmitting(false);
+      });
   };
 
   return (
