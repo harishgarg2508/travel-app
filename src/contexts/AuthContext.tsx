@@ -8,8 +8,7 @@ import {
   signOut,
   updateProfile,
   GoogleAuthProvider,
-  getRedirectResult,
-  signInWithRedirect,
+  signInWithPopup,
   type User,
   type UserCredential,
 } from 'firebase/auth';
@@ -51,7 +50,7 @@ interface AuthContextType {
   isAdmin: boolean;
   login: (email: string, password: string) => Promise<UserCredential>;
   signup: (name: string, email: string, password: string) => Promise<UserCredential>;
-  signInWithGoogle: () => Promise<void>;
+  signInWithGoogle: () => Promise<UserCredential>;
   logout: () => Promise<void>;
 }
 
@@ -95,24 +94,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
-
-    getRedirectResult(auth)
-      .then((result) => {
-        if (active && result?.user) {
-          setUser(result.user);
-          return syncUserProfile(result.user, setUserData);
-        }
-      })
-      .catch((error) => {
-        if (!isAbortError(error)) {
-          console.error('Google redirect sign-in failed', error);
-        }
-      })
-      .finally(() => {
-        if (active) {
-          setLoading(false);
-        }
-      });
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!active) return;
@@ -165,7 +146,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
-      await signInWithRedirect(auth, provider);
+      const cred = await signInWithPopup(auth, provider);
+      await syncUserProfile(cred.user, setUserData);
+      return cred;
     } catch (error) {
       console.error('Google sign-in failed', error);
       throw error;

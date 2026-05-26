@@ -86,7 +86,9 @@ function LoginForm() {
   const handleGoogleSignIn = async () => {
     setGoogleSubmitting(true);
     try {
-      await signInWithGoogle();
+      const credential = await signInWithGoogle();
+      toast.success('Signed in with Google!');
+      router.push(getPostLoginPath(credential.user.email));
     } catch (err: any) {
       console.error('Google sign-in button failed', err);
       const message = getGoogleSignInErrorMessage(err);
