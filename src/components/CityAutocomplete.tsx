@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { mergeCities, searchCities } from '@/lib/cities';
+import { mergeCities, searchCities, saveSingleCity } from '@/lib/cities';
 
 interface CityAutocompleteProps {
   value: string;
@@ -58,11 +58,14 @@ export default function CityAutocomplete({
     function handleClickOutside(event: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
         setShowSuggestions(false);
+        if (inputValue.trim()) {
+          saveSingleCity(inputValue.trim());
+        }
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [inputValue]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -82,16 +85,26 @@ export default function CityAutocomplete({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      if (showSuggestions && activeIndex >= 0) {
+        e.preventDefault();
+        handleSelect(suggestions[activeIndex]);
+      } else if (inputValue.trim()) {
+        e.preventDefault();
+        saveSingleCity(inputValue.trim());
+        setShowSuggestions(false);
+      }
+      return;
+    }
+
     if (!showSuggestions) return;
+
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       setActiveIndex((prev) => Math.min(prev + 1, suggestions.length - 1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setActiveIndex((prev) => Math.max(prev - 1, 0));
-    } else if (e.key === 'Enter' && activeIndex >= 0) {
-      e.preventDefault();
-      handleSelect(suggestions[activeIndex]);
     } else if (e.key === 'Escape') {
       setShowSuggestions(false);
     }

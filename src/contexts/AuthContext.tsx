@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from 'react';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -16,32 +16,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { UserData } from '@/lib/types';
 
-function isAbortError(error: unknown) {
-  if (!error) return false;
 
-  if (error instanceof DOMException && error.name === 'AbortError') {
-    return true;
-  }
-
-  if (error instanceof Error && error.name === 'AbortError') {
-    return true;
-  }
-
-  if (typeof error === 'object' && error !== null) {
-    const name = 'name' in error ? (error as { name?: unknown }).name : undefined;
-    if (name === 'AbortError') {
-      return true;
-    }
-  }
-
-  const message = typeof error === 'string'
-    ? error
-    : typeof error === 'object' && error !== null && 'message' in error
-      ? (error as { message?: unknown }).message
-      : undefined;
-
-  return typeof message === 'string' && /aborterror|aborted a request/i.test(message);
-}
 
 interface AuthContextType {
   user: User | null;
@@ -89,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
+  const isSigningUpRef = useRef(false);
 
   const isAdmin = normalizeEmail(user?.email) === normalizeEmail(ADMIN_EMAIL);
 
@@ -100,7 +76,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setUser(firebaseUser);
       if (firebaseUser) {
-        await syncUserProfile(firebaseUser, setUserData);
+        // If we are currently signing up, the signup function itself will handle
+        // creating the user profile document with the correct name and data.
+        if (!isSigningUpRef.current) {
+          await syncUserProfile(firebaseUser, setUserData);
+        }
       } else {
         setUserData(null);
       }
@@ -125,6 +105,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signup = async (name: string, email: string, password: string) => {
+    isSigningUpRef.current = true;
+    setLoading(true);
     try {
       const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
       await updateProfile(cred.user, { displayName: name });
@@ -139,6 +121,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Signup failed', error);
       throw error;
+    } finally {
+      isSigningUpRef.current = false;
+      setLoading(false);
     }
   };
 
@@ -147,7 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
       const cred = await signInWithPopup(auth, provider);
-      await syncUserProfile(cred.user, setUserData);
+      // Profile sync is handled automatically by the onAuthStateChanged listener
       return cred;
     } catch (error) {
       console.error('Google sign-in failed', error);

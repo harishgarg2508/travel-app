@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -45,15 +45,19 @@ function SignupForm() {
   const [submitting, setSubmitting] = useState(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
 
-  const getPostSignupPath = (email: string | null | undefined) => {
+  const getPostSignupPath = useCallback((email: string | null | undefined) => {
     return email?.trim().toLowerCase() === adminEmail ? '/admin' : '/';
-  };
+  }, [adminEmail]);
 
   useEffect(() => {
-    if (!loading && user) {
-      router.replace(getPostSignupPath(user.email));
-    }
-  }, [loading, user, router]);
+    if (loading) return;
+    if (!user) return;
+    // If the user is actively submitting the signup form or signing in via Google,
+    // let the submit/click handler handle the redirect and toast to avoid dual routing.
+    if (submitting || googleSubmitting) return;
+
+    router.replace(getPostSignupPath(user.email));
+  }, [loading, user, submitting, googleSubmitting, router, getPostSignupPath]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,11 +78,12 @@ function SignupForm() {
     try {
       const credential = await signup(name, email, password);
       toast.success('Account created successfully!');
-      router.push(getPostSignupPath(credential.user.email));
-    } catch (err: any) {
+      router.replace(getPostSignupPath(credential.user.email));
+    } catch (err: unknown) {
       console.error('Signup form submit failed', err);
+      const code = getFirebaseErrorCode(err);
       const message =
-        err.code === 'auth/email-already-in-use'
+        code === 'auth/email-already-in-use'
           ? 'An account with this email already exists'
           : 'Failed to create account. Please try again.';
       toast.error(message);
@@ -89,20 +94,19 @@ function SignupForm() {
 
   const handleGoogleSignIn = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    const signInPromise = signInWithGoogle();
     setGoogleSubmitting(true);
 
-    signInPromise
+    signInWithGoogle()
       .then((credential) => {
-      toast.success('Signed in with Google!');
-      router.push(getPostSignupPath(credential.user.email));
+        toast.success('Signed in with Google!');
+        router.replace(getPostSignupPath(credential.user.email));
       })
-      .catch((err: any) => {
-      console.error('Google sign-in button failed on signup page', err);
-      const message = getGoogleSignInErrorMessage(err);
-      if (message) {
-        toast.error(message);
-      }
+      .catch((err: unknown) => {
+        console.error('Google sign-in button failed on signup page', err);
+        const message = getGoogleSignInErrorMessage(err);
+        if (message) {
+          toast.error(message);
+        }
       })
       .finally(() => {
         setGoogleSubmitting(false);

@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -46,16 +46,20 @@ function LoginForm() {
   const redirectTo = searchParams.get('redirect');
   const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL?.trim().toLowerCase() || '';
 
-  const getPostLoginPath = (email: string | null | undefined) => {
+  const getPostLoginPath = useCallback((email: string | null | undefined) => {
     if (redirectTo) return redirectTo;
     return email?.trim().toLowerCase() === adminEmail ? '/admin' : '/';
-  };
+  }, [redirectTo, adminEmail]);
 
   useEffect(() => {
-    if (!loading && user) {
-      router.replace(getPostLoginPath(user.email));
-    }
-  }, [loading, user, router]);
+    if (loading) return;
+    if (!user) return;
+    // If the user is actively submitting the login form or signing in via Google,
+    // let the submit/click handler handle the redirect and toast to avoid dual routing.
+    if (submitting || googleSubmitting) return;
+
+    router.replace(getPostLoginPath(user.email));
+  }, [loading, user, submitting, googleSubmitting, router, getPostLoginPath]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,13 +72,14 @@ function LoginForm() {
     try {
       const credential = await login(email, password);
       toast.success('Welcome back!');
-      router.push(getPostLoginPath(credential.user.email));
-    } catch (err: any) {
+      router.replace(getPostLoginPath(credential.user.email));
+    } catch (err: unknown) {
       console.error('Login form submit failed', err);
+      const code = getFirebaseErrorCode(err);
       const message =
-        err.code === 'auth/user-not-found'
+        code === 'auth/user-not-found'
           ? 'No account found with this email'
-          : err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential'
+          : code === 'auth/wrong-password' || code === 'auth/invalid-credential'
           ? 'Invalid email or password'
           : 'Failed to login. Please try again.';
       toast.error(message);
@@ -85,20 +90,19 @@ function LoginForm() {
 
   const handleGoogleSignIn = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    const signInPromise = signInWithGoogle();
     setGoogleSubmitting(true);
 
-    signInPromise
+    signInWithGoogle()
       .then((credential) => {
-      toast.success('Signed in with Google!');
-      router.push(getPostLoginPath(credential.user.email));
+        toast.success('Signed in with Google!');
+        router.replace(getPostLoginPath(credential.user.email));
       })
-      .catch((err: any) => {
-      console.error('Google sign-in button failed', err);
-      const message = getGoogleSignInErrorMessage(err);
-      if (message) {
-        toast.error(message);
-      }
+      .catch((err: unknown) => {
+        console.error('Google sign-in button failed', err);
+        const message = getGoogleSignInErrorMessage(err);
+        if (message) {
+          toast.error(message);
+        }
       })
       .finally(() => {
         setGoogleSubmitting(false);

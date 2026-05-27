@@ -31,6 +31,25 @@ export function searchCities(query: string, cities = INDIAN_CITIES, limit = 5): 
     .slice(0, limit);
 }
 
+export async function saveSingleCity(city: string) {
+  const normalized = normalizeCityName(city);
+  if (!normalized || normalized.length < 2) return;
+
+  try {
+    await setDoc(
+      doc(db, 'cities', cityDocId(normalized)),
+      {
+        name: normalized,
+        searchName: normalized.toLowerCase(),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  } catch (err) {
+    console.error('Failed to save searched city:', normalized, err);
+  }
+}
+
 export async function saveCitiesForTrip(fromCity: string, toCity: string) {
   const cities = mergeCities([fromCity, toCity]).filter((city) =>
     [fromCity, toCity].some((tripCity) => normalizeCityName(tripCity).toLowerCase() === city.toLowerCase())
@@ -52,3 +71,4 @@ export async function saveCitiesForTrip(fromCity: string, toCity: string) {
 }
 
 export default INDIAN_CITIES;
+
