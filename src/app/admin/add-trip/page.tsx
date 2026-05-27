@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { saveCitiesForTrip } from '@/lib/cities';
+import { compressImageToBase64 } from '@/lib/images';
 import { VEHICLE_TYPES } from '@/lib/types';
 import AdminGuard from '@/components/AdminGuard';
 import CityAutocomplete from '@/components/CityAutocomplete';
@@ -19,8 +19,8 @@ export default function AddTripPage() {
     toCity: '',
     dateTime: '',
     vehicleType: 'Bus',
-    seatsAvailable: 40,
-    price: 0,
+    seatsAvailable: '40',
+    price: '',
   });
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -49,7 +49,7 @@ export default function AddTripPage() {
       toast.error('From and To cities must be different');
       return;
     }
-    if (formData.seatsAvailable < 1) {
+    if (Number(formData.seatsAvailable) < 1) {
       toast.error('Seats must be at least 1');
       return;
     }
@@ -58,11 +58,9 @@ export default function AddTripPage() {
     try {
       let imageUrl = '';
 
-      // Upload image to Firebase Storage if provided
+      // Compress and convert image to Base64 if provided
       if (image) {
-        const storageRef = ref(storage, `trips/${Date.now()}_${image.name}`);
-        const snapshot = await uploadBytes(storageRef, image);
-        imageUrl = await getDownloadURL(snapshot.ref);
+        imageUrl = await compressImageToBase64(image);
       }
 
       const tripData = {
@@ -154,11 +152,11 @@ export default function AddTripPage() {
             {/* Price & Seats */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Price (₹)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Price / Seat (₹)</label>
                 <input
                   type="number"
                   value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
+                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all"
                   min="0"
                   required
@@ -169,7 +167,7 @@ export default function AddTripPage() {
                 <input
                   type="number"
                   value={formData.seatsAvailable}
-                  onChange={(e) => setFormData({ ...formData, seatsAvailable: Number(e.target.value) })}
+                  onChange={(e) => setFormData({ ...formData, seatsAvailable: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all"
                   min="1"
                   required

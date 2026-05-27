@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { saveCitiesForTrip } from '@/lib/cities';
+import { compressImageToBase64 } from '@/lib/images';
 import { VEHICLE_TYPES } from '@/lib/types';
 import AdminGuard from '@/components/AdminGuard';
 import CityAutocomplete from '@/components/CityAutocomplete';
@@ -16,13 +16,20 @@ export default function EditTripPage() {
   const params = useParams();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    fromCity: string;
+    toCity: string;
+    dateTime: string;
+    vehicleType: string;
+    seatsAvailable: string;
+    price: string;
+  }>({
     fromCity: '',
     toCity: '',
     dateTime: '',
     vehicleType: 'Bus',
-    seatsAvailable: 40,
-    price: 0,
+    seatsAvailable: '40',
+    price: '',
   });
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -41,8 +48,8 @@ export default function EditTripPage() {
             toCity: data.toCity || '',
             dateTime: data.dateTime || '',
             vehicleType: data.vehicleType || 'Bus',
-            seatsAvailable: data.seatsAvailable || 40,
-            price: data.price || 0,
+            seatsAvailable: String(data.seatsAvailable !== undefined ? data.seatsAvailable : 40),
+            price: String(data.price !== undefined ? data.price : ''),
           });
           setExistingImageUrl(data.imageUrl || '');
           setImagePreview(data.imageUrl || null);
@@ -97,21 +104,9 @@ export default function EditTripPage() {
     try {
       let imageUrl = existingImageUrl;
 
-      // Upload new image if changed
+      // Compress and convert new image if changed
       if (image) {
-        // Delete old image if exists
-        if (existingImageUrl) {
-          try {
-            const oldImageRef = ref(storage, existingImageUrl);
-            await deleteObject(oldImageRef);
-          } catch {
-            // Old image might not exist
-          }
-        }
-
-        const storageRef = ref(storage, `trips/${Date.now()}_${image.name}`);
-        const snapshot = await uploadBytes(storageRef, image);
-        imageUrl = await getDownloadURL(snapshot.ref);
+        imageUrl = await compressImageToBase64(image);
       }
 
       const docRef = doc(db, 'trips', params.id as string);
@@ -211,11 +206,11 @@ export default function EditTripPage() {
             {/* Price & Seats */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Price (₹)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Price / Seat (₹)</label>
                 <input
                   type="number"
                   value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
+                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all"
                   min="0"
                   required
@@ -226,7 +221,7 @@ export default function EditTripPage() {
                 <input
                   type="number"
                   value={formData.seatsAvailable}
-                  onChange={(e) => setFormData({ ...formData, seatsAvailable: Number(e.target.value) })}
+                  onChange={(e) => setFormData({ ...formData, seatsAvailable: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all"
                   min="1"
                   required

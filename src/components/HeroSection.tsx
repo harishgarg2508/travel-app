@@ -1,23 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-
 export default function HeroSection() {
-  const router = useRouter();
-  const [searchFrom, setSearchFrom] = useState('');
-  const [searchTo, setSearchTo] = useState('');
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    const params = new URLSearchParams();
-    if (searchFrom) params.set('from', searchFrom);
-    if (searchTo) params.set('to', searchTo);
-    router.push(`/?${params.toString()}#trips`);
-  };
-
   return (
-    <section className="relative min-h-[70vh] flex items-center justify-center overflow-hidden">
+    <section className="relative min-h-[60vh] flex items-center justify-center overflow-hidden">
       {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900">
         <div className="absolute inset-0 opacity-20">
@@ -49,43 +34,24 @@ export default function HeroSection() {
           Book safe and comfortable intercity trips across India. Buses, cars, tempo travelers — we've got you covered.
         </p>
 
-        {/* Search Bar */}
-        <form onSubmit={handleSearch} className="bg-white/10 backdrop-blur-md border border-white/10 rounded-2xl p-4 sm:p-6 max-w-2xl mx-auto">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-            <div className="relative">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              <input
-                type="text"
-                placeholder="From city..."
-                value={searchFrom}
-                onChange={(e) => setSearchFrom(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/10 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
-              />
-            </div>
-            <div className="relative">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              <input
-                type="text"
-                placeholder="To city..."
-                value={searchTo}
-                onChange={(e) => setSearchTo(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/10 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
-              />
-            </div>
-          </div>
-          <button
-            type="submit"
-            className="w-full py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all duration-200 shadow-lg shadow-orange-500/25"
+        {/* Premium Call to Action */}
+        <div className="mt-8">
+          <a
+            href="#trips"
+            className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-2xl hover:from-orange-600 hover:to-orange-700 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 shadow-xl shadow-orange-500/25 group"
           >
-            Search Trips
-          </button>
-        </form>
+            Explore Trips
+            <svg
+              className="w-5 h-5 transform group-hover:translate-y-1 transition-transform duration-300"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              suppressHydrationWarning
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+            </svg>
+          </a>
+        </div>
       </div>
     </section>
   );
