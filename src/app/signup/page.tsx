@@ -7,8 +7,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
 
 import { useRef } from 'react';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 function getFirebaseErrorCode(error: unknown) {
   return typeof error === 'object' && error !== null && 'code' in error
@@ -69,8 +70,19 @@ function SignupForm() {
     const btn = googleBtnRef.current;
     if (!btn) return;
 
-    const handleNativeClick = (e: MouseEvent) => {
+    const handleNativeClick = async (e: MouseEvent) => {
       e.preventDefault();
+
+      // 1. Defend against social media In-App WebViews (Google OAuth blocker)
+      const ua = typeof navigator !== 'undefined' ? navigator.userAgent || "" : "";
+      const isInApp = /Instagram|FBAN|FBAV|FB_IAB|TikTok|Twitter|wv\)|WebView|InApp/i.test(ua);
+      if (isInApp) {
+        toast.error(
+          "Google Login is blocked inside social media WebViews. " +
+          "Please tap the options icon (...) and select 'Open in Chrome/Safari' to log in."
+        );
+        return;
+      }
       
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
@@ -78,25 +90,35 @@ function SignupForm() {
       setGoogleSubmitting(true);
       setShowPopupHelp(false);
 
-      signInWithPopup(auth, provider)
-        .then((credential) => {
-          toast.success('Signed in with Google!');
-          router.replace(getPostSignupPath(credential.user.email));
-        })
-        .catch((err: any) => {
-          console.error('Google sign-in native failed on signup page', err);
-          if (err && (err.code === 'auth/popup-blocked' || err.code === 'auth/cancelled-popup-request')) {
-            setShowPopupHelp(true);
-          } else {
-            const message = getGoogleSignInErrorMessage(err);
-            if (message) {
-              toast.error(message);
-            }
+      try {
+        const credential = await signInWithPopup(auth, provider);
+        
+        // 2. Await Secure user profile synchronization to prevent race conditions
+        const userDocRef = doc(db, 'users', credential.user.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        if (!userDocSnap.exists()) {
+          await setDoc(userDocRef, {
+            uid: credential.user.uid,
+            name: credential.user.displayName || 'User',
+            email: credential.user.email || '',
+          });
+        }
+
+        toast.success('Signed in with Google!');
+        router.replace(getPostSignupPath(credential.user.email));
+      } catch (err: any) {
+        console.error('Google sign-in native failed on signup page', err);
+        if (err && (err.code === 'auth/popup-blocked' || err.code === 'auth/cancelled-popup-request')) {
+          setShowPopupHelp(true);
+        } else {
+          const message = getGoogleSignInErrorMessage(err);
+          if (message) {
+            toast.error(message);
           }
-        })
-        .finally(() => {
-          setGoogleSubmitting(false);
-        });
+        }
+      } finally {
+        setGoogleSubmitting(false);
+      }
     };
 
     btn.addEventListener('click', handleNativeClick);
