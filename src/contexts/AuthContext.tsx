@@ -9,12 +9,15 @@ import {
   updateProfile,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   type User,
   type UserCredential,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { UserData } from '@/lib/types';
+import toast from 'react-hot-toast';
 
 
 
@@ -70,6 +73,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
+
+    // Process redirect result if any
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (active && result && result.user) {
+          await syncUserProfile(result.user, setUserData);
+          toast.success('Successfully signed in with Google!');
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          console.error('Error resolving Google redirect sign-in:', error);
+          if (error && error.code === 'auth/unauthorized-domain') {
+            toast.error('This domain is not authorized for Google sign-in.');
+          } else {
+            toast.error('Google authorization failed. Please try again.');
+          }
+        }
+      });
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!active) return;
@@ -128,14 +150,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
     try {
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' });
       const cred = await signInWithPopup(auth, provider);
       // Profile sync is handled automatically by the onAuthStateChanged listener
       return cred;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Google sign-in failed', error);
+      if (error && (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request')) {
+        console.warn('Google popup was blocked or cancelled. Falling back to redirect flow...');
+        await signInWithRedirect(auth, provider);
+        // Return a dummy promise that never resolves since the browser is redirecting
+        return new Promise<never>(() => {});
+      }
       throw error;
     }
   };

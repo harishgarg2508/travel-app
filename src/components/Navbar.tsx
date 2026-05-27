@@ -11,9 +11,11 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <Link href="/" className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            <svg className="w-6 h-6 sm:w-8 h-8 text-orange-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" suppressHydrationWarning>
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
+            <img
+              src="/logo.png"
+              alt="All India Tour & Travel"
+              className="w-7 h-7 sm:w-9 h-9 object-contain rounded-lg shadow-sm"
+            />
             <span className="text-sm sm:text-base md:text-xl font-bold text-gray-900 whitespace-nowrap">
               <span className="hidden min-[380px]:inline">All India </span>
               <span className="text-orange-500">Tour & Travel</span>
