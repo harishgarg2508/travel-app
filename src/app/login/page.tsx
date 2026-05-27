@@ -90,9 +90,10 @@ function LoginForm() {
 
   const handleGoogleSignIn = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
+    const promise = signInWithGoogle();
     setGoogleSubmitting(true);
 
-    signInWithGoogle()
+    promise
       .then((credential) => {
         toast.success('Signed in with Google!');
         router.replace(getPostLoginPath(credential.user.email));

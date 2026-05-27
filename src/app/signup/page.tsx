@@ -94,9 +94,10 @@ function SignupForm() {
 
   const handleGoogleSignIn = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
+    const promise = signInWithGoogle();
     setGoogleSubmitting(true);
 
-    signInWithGoogle()
+    promise
       .then((credential) => {
         toast.success('Signed in with Google!');
         router.replace(getPostSignupPath(credential.user.email));
