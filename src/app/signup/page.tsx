@@ -6,6 +6,10 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
 
+import { useRef } from 'react';
+import { auth } from '@/lib/firebase';
+import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+
 function getFirebaseErrorCode(error: unknown) {
   return typeof error === 'object' && error !== null && 'code' in error
     ? (error as { code?: unknown }).code
@@ -36,7 +40,7 @@ function getGoogleSignInErrorMessage(error: unknown) {
 
 function SignupForm() {
   const router = useRouter();
-  const { user, loading, signup, signInWithGoogle } = useAuth();
+  const { user, loading, signup } = useAuth();
   const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL?.trim().toLowerCase() || '';
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -44,6 +48,8 @@ function SignupForm() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
+  const [showPopupHelp, setShowPopupHelp] = useState(false);
+  const googleBtnRef = useRef<HTMLButtonElement>(null);
 
   const getPostSignupPath = useCallback((email: string | null | undefined) => {
     return email?.trim().toLowerCase() === adminEmail ? '/admin' : '/';
@@ -58,6 +64,46 @@ function SignupForm() {
 
     router.replace(getPostSignupPath(user.email));
   }, [loading, user, submitting, googleSubmitting, router, getPostSignupPath]);
+
+  useEffect(() => {
+    const btn = googleBtnRef.current;
+    if (!btn) return;
+
+    const handleNativeClick = (e: MouseEvent) => {
+      e.preventDefault();
+      
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      
+      setGoogleSubmitting(true);
+      setShowPopupHelp(false);
+
+      signInWithPopup(auth, provider)
+        .then((credential) => {
+          toast.success('Signed in with Google!');
+          router.replace(getPostSignupPath(credential.user.email));
+        })
+        .catch((err: any) => {
+          console.error('Google sign-in native failed on signup page', err);
+          if (err && (err.code === 'auth/popup-blocked' || err.code === 'auth/cancelled-popup-request')) {
+            setShowPopupHelp(true);
+          } else {
+            const message = getGoogleSignInErrorMessage(err);
+            if (message) {
+              toast.error(message);
+            }
+          }
+        })
+        .finally(() => {
+          setGoogleSubmitting(false);
+        });
+    };
+
+    btn.addEventListener('click', handleNativeClick);
+    return () => {
+      btn.removeEventListener('click', handleNativeClick);
+    };
+  }, [getPostSignupPath, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,28 +138,6 @@ function SignupForm() {
     }
   };
 
-  const handleGoogleSignIn = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    const promise = signInWithGoogle();
-    setGoogleSubmitting(true);
-
-    promise
-      .then((credential) => {
-        toast.success('Signed in with Google!');
-        router.replace(getPostSignupPath(credential.user.email));
-      })
-      .catch((err: unknown) => {
-        console.error('Google sign-in button failed on signup page', err);
-        const message = getGoogleSignInErrorMessage(err);
-        if (message) {
-          toast.error(message);
-        }
-      })
-      .finally(() => {
-        setGoogleSubmitting(false);
-      });
-  };
-
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
@@ -128,9 +152,28 @@ function SignupForm() {
             <p className="text-gray-500 mt-1">Start booking your trips</p>
           </div>
 
+          {/* Popup Block Help Alert */}
+          {showPopupHelp && (
+            <div className="mb-5 p-4 bg-orange-50 border border-orange-200 rounded-xl animate-fade-in">
+              <div className="flex gap-3">
+                <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 shrink-0 mt-0.5">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-orange-800">Google Sign-up Blocked</h4>
+                  <p className="text-xs text-orange-700 mt-1 leading-relaxed">
+                    Your browser blocked the secure Google sign-in window. Please click the "Sign up with Google" button again and click **"Allow popups"** in your browser's address bar to register.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <button
             type="button"
-            onClick={handleGoogleSignIn}
+            ref={googleBtnRef}
             disabled={googleSubmitting}
             className="w-full py-3 border border-gray-200 rounded-xl text-gray-700 font-medium flex items-center justify-center gap-3 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 mb-4"
           >
