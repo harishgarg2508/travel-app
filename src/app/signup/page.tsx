@@ -70,7 +70,7 @@ function SignupForm() {
     const btn = googleBtnRef.current;
     if (!btn) return;
 
-    const handleNativeClick = async (e: MouseEvent) => {
+    const handleNativeClick = (e: MouseEvent) => {
       e.preventDefault();
 
       // 1. Defend against social media In-App WebViews (Google OAuth blocker)
@@ -87,38 +87,43 @@ function SignupForm() {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
       
+      // CALL signInWithPopup synchronously FIRST inside the native mouse click context
+      const signInPromise = signInWithPopup(auth, provider);
+      
+      // Update loading state in next tick/rendering cycle
       setGoogleSubmitting(true);
       setShowPopupHelp(false);
 
-      try {
-        const credential = await signInWithPopup(auth, provider);
-        
-        // 2. Await Secure user profile synchronization to prevent race conditions
-        const userDocRef = doc(db, 'users', credential.user.uid);
-        const userDocSnap = await getDoc(userDocRef);
-        if (!userDocSnap.exists()) {
-          await setDoc(userDocRef, {
-            uid: credential.user.uid,
-            name: credential.user.displayName || 'User',
-            email: credential.user.email || '',
-          });
-        }
-
-        toast.success('Signed in with Google!');
-        router.replace(getPostSignupPath(credential.user.email));
-      } catch (err: any) {
-        console.error('Google sign-in native failed on signup page', err);
-        if (err && (err.code === 'auth/popup-blocked' || err.code === 'auth/cancelled-popup-request')) {
-          setShowPopupHelp(true);
-        } else {
-          const message = getGoogleSignInErrorMessage(err);
-          if (message) {
-            toast.error(message);
+      signInPromise
+        .then(async (credential) => {
+          // 2. Await Secure user profile synchronization to prevent race conditions
+          const userDocRef = doc(db, 'users', credential.user.uid);
+          const userDocSnap = await getDoc(userDocRef);
+          if (!userDocSnap.exists()) {
+            await setDoc(userDocRef, {
+              uid: credential.user.uid,
+              name: credential.user.displayName || 'User',
+              email: credential.user.email || '',
+            });
           }
-        }
-      } finally {
-        setGoogleSubmitting(false);
-      }
+
+          toast.success('Signed in with Google!');
+          router.replace(getPostSignupPath(credential.user.email));
+        })
+        .catch((err: any) => {
+          console.error('Google sign-in native failed on signup page', err);
+          if (err && (err.code === 'auth/popup-blocked' || err.code === 'auth/cancelled-popup-request')) {
+            setShowPopupHelp(true);
+          } else {
+            const message = getGoogleSignInErrorMessage(err);
+            if (message) {
+              toast.error(message);
+            }
+          }
+        })
+        .finally(() => {
+          setGoogleSubmitting(false);
+        });
     };
 
     btn.addEventListener('click', handleNativeClick);
